@@ -1,40 +1,49 @@
+import copy
+
 class Particle:
 
-    #Particle mass
-    _m = 1
-
-    #Position
-    x = 0
-    y = 0
-    z = 0
-
-    #Velocity
-    vx = 0
-    vy = 0
-    vz = 0
-
-    #Force
-    fx = 0
-    fy = 0
-    fz = 0
+    #Particle properties
+    _position = (0, 0, 0,)
+    _previous_position = (0, 0, 0,)
+    _velocity = (0, 0, 0,)
+    _force = (0, 0, 0,)
 
     def __init__(self, position, velocity):
+        """Initialize the particle with given position and velocity."""
 
-        #Set initial position and velocity from provided tuples
-        self.x, self.y, self.z = position
-        self.vx, self.vy, self.vz = velocity
+        self._position = position
+        self._velocity = velocity
 
     def set_force_to(self, force):
-        self.fx, self.fy, self.fz = force
+        self._force = force
 
     def update_position(self, dt):
-        pass
+        """Update the position of the particle according to the Verlet algorithm."""
+
+        next_position = []
+        next_velocity = []
+        for n in len(self._position):
+            dq = 2*self._position[n] - self._previous_position[n] + self._force[n]*dt**2
+            dv = (dq - self._previous_position[n])/(2*dt)
+            next_position.append(dq)
+            next_velocity.append(dv)
+        self._previous_position = copy.deepcopy(self._position)
+        self._position = tuple(next_position)
+        self._velocity = tuple(next_velocity)
+
+    def get_squared_velocity(self):
+        """Get the square of the velocity."""
+
+        sumv2 = 0
+        for n in len(self._velocity):
+            sumv += self._velocity[n]**2
+        return sumv2
 
 class LJContainer:
 
     _particles = []
 
-    def __init__(self, density, tempoerature):
+    def __init__(self, density, temperature):
         pass
 
     def initialize(self, atoms):
