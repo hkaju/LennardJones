@@ -2,9 +2,12 @@ pdf("energies.pdf")
 
 data <- read.csv("output.csv", header=T)
 
-plot(data$t, data$K, ylim=c(-5, 3.5), xlab="Time", ylab="Energy per particle", type="n")
-lines(data$t, data$V)
-lines(data$t, data$T)
-lines(data$t, data$K)
+plot(data$t, data$K, ylim=c(-5, 3), xlab="Time steps", ylab="Energy per particle", type="n")
+lines(data$t, data$V, col="blue")
+lines(data$t, data$T, col="black")
+lines(data$t, data$K, col="red")
+
+legend("right", cex=0.75, pch=NA, lty=c(1, 1, 1),
+  col=c("red", "black", "blue"), legend=c("Kinetic", "Total", "Potential"))
 
 dev.off()
