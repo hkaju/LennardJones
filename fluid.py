@@ -2,7 +2,13 @@ import copy
 import random
 import math
 
-DEBUG = True
+DEBUG = False
+
+#def copy(something):
+#    other_thing = []
+#    for n in something:
+#        other_thing.append(n)
+#    return other_thing
 
 class Particle:
 
@@ -19,7 +25,7 @@ class Particle:
         self.position = position
         self.velocity = velocity
 
-    def update_position(self, dt):
+    def update_position(self, dt, box_length):
         """Update the position of the particle according to the Verlet algorithm."""
 
         #If this is the first time the particle moves, generate a previous position
@@ -35,14 +41,22 @@ class Particle:
         next_velocity = []
         for n in range(len(self.position)):
             dq = 2*self.position[n] - self.previous_position[n] + self.force[n]*dt**2
-            dv = (dq - self.previous_position[n])/(2*dt)
+            dd = dq - self.previous_position[n]
+            dd = dd - box_length*round(dd/box_length)
+            dv = (dd)/(2*dt)
             next_position.append(dq)
             next_velocity.append(dv)
+
+        #Enforce PBC
+        for i in range(len(next_position)):
+            next_position[i] = next_position[i] % box_length
+            self.position[i] = self.position[i] % box_length
 
         #Update particle properties
         self.previous_position = copy.deepcopy(self.position)
         self.position = next_position
         self.velocity = next_velocity
+        #print next_velocity
 
     def get_squared_velocity(self):
         """Get the square of the velocity."""
@@ -50,6 +64,9 @@ class Particle:
         sumv2 = 0
         for n in range(len(self.velocity)):
             sumv2 += self.velocity[n]**2
+        if sumv2 > 100:
+            #print 'kinetic spike', sumv2
+            pass
         return sumv2
 
 class LJContainer:
@@ -90,7 +107,7 @@ class LJContainer:
             y = ((n-(n/36)*36)/6 + 1) * spacing
             z = (n/36 + 1) * spacing
 
-            position = (x, y, z,)
+            position = [x, y, z,]
             velocity = velocities.pop()
             particle = Particle(position, velocity)
             self.particles.append(particle)
@@ -139,8 +156,9 @@ class LJContainer:
         return velocities
 
     def update_forces(self):
-        rc2 = 2.5**2
-        ecut = 4 * ((1/2.5)**12 - (1/2.5)**6)
+        rc = 2.5
+        ecut = 4 * ((1/rc)**12 - (1/rc)**6)
+        tail = 8/3 * math.pi * (1/3 * (1/rc)**9 - (1/rc)**3)
         for i in range(0, len(self.particles) - 1):
             for j in range(i, len(self.particles)):
                 if i != j:
@@ -150,27 +168,33 @@ class LJContainer:
                     dn[0] = dn[0] - self.length*round(dn[0]/self.length)
                     dn[1] = dn[1] - self.length*round(dn[1]/self.length)
                     dn[2] = dn[2] - self.length*round(dn[2]/self.length)
+                    #print dn
                     r2 = dn[0]**2 + dn[1]**2 + dn[2]**2
-                    if r2 < rc2:
+                    #print i, j, r2
+                    #print self.particles[i].position
+                    #print self.particles[j].position
+                    if r2 < rc**2:
                         r2i = 1/r2
                         r6i = r2i**3
-                        u = 4 * r6i * (r6i - 1)  - ecut
+                        u = 4 * r6i * (r6i - 1) - ecut
                         f = 48 * r2i * r6i * (r6i - 0.5)
-                        self.particles[i].potential += u
-                        self.particles[j].potential += u
+                        self.particles[i].potential += u + ecut
+                        self.particles[j].potential += u + ecut
                         for d in range(3):
                             self.particles[i].force[d] += f*dn[d]
                             self.particles[j].force[d] -= f*dn[d]
 
     def tick(self, time_step):
         for p in self.particles:
-            p.update_position(time_step)
+            p.update_position(time_step, self.length)
 
     def reset_forces(self):
+        rc = 2.5
+        tail = 8/3 * math.pi * (1/3 * (1/rc)**9 - (1/rc)**3)
         for i in range(len(self.particles)):
             force = [0] * 3
             self.particles[i].force = force
-            self.particles[i].potential = 0
+            self.particles[i].potential = tail
 
     def sample(self, time):
         self.data["t"].append(time)
@@ -179,6 +203,7 @@ class LJContainer:
         for particle in self.particles:
             K += particle.get_squared_velocity()
             V += particle.potential
+        #print K/len(self.particles)
         self.data["K"].append(K/len(self.particles))
         self.data["V"].append(V/len(self.particles))
         self.data["T"].append((K + V)/len(self.particles))

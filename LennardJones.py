@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
+import sys
+
 from fluid import LJContainer
 
 PARTICLES = 108
 TEMPERATURE = 0.728
 DENSITY = 0.8442
-TIME_STEP = 0.001
-STEPS = 20
+TIME_STEP = 0.01
+STEPS = 2500
 
 class LennardJones:
 
-    t = 0
+    t = 0.0
 
     def __init__(self):
         #Initialize the container
@@ -18,15 +20,18 @@ class LennardJones:
         #print container.generate_velocities(2)
         #Equilibriate the system
         #Start measuring
+
         while self.t < STEPS:
+            sys.stdout.write("\rCalculating: {0:3.1f}%".format(self.t*100/STEPS))
+            sys.stdout.flush()
             container.reset_forces()
             container.update_forces()
             container.tick(TIME_STEP)
             container.sample(self.t)
-            self.t += TIME_STEP
+            self.t += 1
             #Sample averages
         #print container.data
-        container.write_particles()
+        #container.write_particles()
         f = open("output.csv", "w")
         f.write("t,K,V,T\n")
         for item in range(len(container.data["t"])):
