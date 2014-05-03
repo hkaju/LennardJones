@@ -69,6 +69,9 @@ class Particle:
             pass
         return sumv2
 
+    def get_force(self):
+        return math.sqrt(self.force[0]**2 + self.force[1]**2 + self.force[2]**2)
+
 class LJContainer:
 
     particles = []
@@ -78,7 +81,8 @@ class LJContainer:
     data = {"t" : [],
             "K" : [],
             "V" : [],
-            "T" : []}
+            "T" : [],
+            "P" : []}
 
     def __init__(self, number_of_particles, density, temperature):
         self.length = (number_of_particles * 4.0/3.0 * math.pi / density)**(1.0/3)
@@ -142,17 +146,6 @@ class LJContainer:
                 vn[d] = (velocities[i][d] - vtot[d]) * fs[d]
             velocities[i] = vn
 
-        if DEBUG:
-            vtot = [0] * dimensions
-            v2tot = [0] * dimensions
-            for item in velocities:
-                for dim in range(len(item)):
-                    vtot[dim] += item[dim]
-                    v2tot[dim] += item[dim]**2
-            for dim in range(dimensions):
-                v2tot[dim] = v2tot[dim] / number_of_particles
-            print vtot, v2tot
-
         return velocities
 
     def update_forces(self):
@@ -185,6 +178,8 @@ class LJContainer:
                             self.particles[j].force[d] -= f*dn[d]
 
     def tick(self, time_step):
+        self.reset_forces()
+        self.update_forces()
         for p in self.particles:
             p.update_position(time_step, self.length)
 
@@ -196,14 +191,25 @@ class LJContainer:
             self.particles[i].force = force
             self.particles[i].potential = tail
 
+    def get_current_temperature(self):
+        T = 0
+        for particle in self.particles:
+            T += particle.get_squared_velocity()
+        T = T / 3.0
+        return T
+
     def sample(self, time):
         self.data["t"].append(time)
         K = 0
         V = 0
+        P = 0
         for particle in self.particles:
             K += particle.get_squared_velocity()
             V += particle.potential
+            P += particle.get_force()
         #print K/len(self.particles)
+        P = self.density * self.get_current_temperature() + 1/(3*self.length**3)*0.5*P
         self.data["K"].append(K/len(self.particles))
         self.data["V"].append(V/len(self.particles))
         self.data["T"].append((K + V)/len(self.particles))
+        self.data["P"].append(P)
