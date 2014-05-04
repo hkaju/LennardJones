@@ -19,3 +19,10 @@ def generate_report(timestep):
     report.close()
     subprocess.call(['R', '-f tmp/report.r'])
     print("Report generated!")
+
+def write_particles(self, particles):
+    f = open("grid.csv", "w")
+    f.write("x,y,z\n")
+    for particle in particles:
+        f.write("{0},{1},{2}\n".format(particle.position[0], particle.position[1], particle.position[2]))
+    f.close()
