@@ -3,9 +3,9 @@ import os
 
 def write_data(data):
     f = open("output.csv", "w")
-    f.write("t,K,V,T,P\n")
+    f.write("t,K,V,T,P,temp\n")
     for item in range(len(data["t"])):
-        f.write("{0},{1},{2},{3},{4}\n".format(data["t"][item], data["K"][item], data["V"][item], data["T"][item], data["P"][item]))
+        f.write("{0},{1},{2},{3},{4},{5}\n".format(data["t"][item], data["K"][item], data["V"][item], data["T"][item], data["P"][item], data["temp"][item]))
     f.close()
 
 def generate_report(timestep):

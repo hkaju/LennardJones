@@ -2,6 +2,13 @@ import copy
 import random
 import math
 
+PARTICLES = 108
+TEMPERATURE = 2.0
+DENSITY = 0.8
+TIME_STEP = 0.001
+ANDERSEN_FREQUENCY = 0.01
+CUTOFF = 2.5
+
 class Particle:
 
     #Particle properties
@@ -11,44 +18,15 @@ class Particle:
     force = [0, 0, 0]
     potential = 0
 
-    def __init__(self, position, velocity):
+    def __init__(self, position, velocity, dt):
         """Initialize the particle with given position and velocity."""
 
         self.position = position
         self.velocity = velocity
-
-    def update_position(self, dt, box_length):
-        """Update the position of the particle according to the Verlet algorithm."""
-
-        #If this is the first time the particle moves, generate a previous position
-        #based on current speed
-        if not self.previous_position:
-            x = self.position[0] - self.velocity[0]*dt
-            y = self.position[1] - self.velocity[1]*dt
-            z = self.position[2] - self.velocity[2]*dt
-            self.previous_position = [x, y, z]
-
-        #Calculate updated position and velocity
-        next_position = []
-        next_velocity = []
-        for n in range(len(self.position)):
-            dq = 2*self.position[n] - self.previous_position[n] + self.force[n]*dt**2
-            dd = dq - self.previous_position[n]
-            #Periodic boundary conditions
-            dd = dd - box_length*round(dd/box_length)
-            dv = (dd)/(2*dt)
-            next_position.append(dq)
-            next_velocity.append(dv)
-
-        #Move particles back inside the box (PBC)
-        for i in range(len(next_position)):
-            next_position[i] = next_position[i] % box_length
-            self.position[i] = self.position[i] % box_length
-
-        #Update particle properties
-        self.previous_position = copy.deepcopy(self.position)
-        self.position = next_position
-        self.velocity = next_velocity
+        x = self.position[0] - self.velocity[0]*dt
+        y = self.position[1] - self.velocity[1]*dt
+        z = self.position[2] - self.velocity[2]*dt
+        self.previous_position = [x, y, z]
 
     def get_squared_velocity(self):
         """Get the square of the velocity."""
@@ -72,24 +50,29 @@ class LJContainer:
     temperature = 0
     density = 0
     length = 0
+    nu = ANDERSEN_FREQUENCY
     data = {"t" : [],
             "K" : [],
             "V" : [],
             "T" : [],
-            "P" : []}
+            "P" : [],
+            "temp" : []}
 
-    def __init__(self, number_of_particles, density, temperature):
+    def __init__(self, density):
         """Set up the container."""
 
         #Calculate container dimensions from the density
         #Particle radius is set to 1
-        self.length = (number_of_particles * 4.0/3.0 * math.pi / density)**(1.0/3)
-        self.temperature = temperature
+        self.length = (PARTICLES * 4.0/3.0 * math.pi / density)**(1.0/3)
+        print self.length
+        self.temperature = TEMPERATURE
+        print self.temperature
         self.density = density
+        self.timestep = TIME_STEP
         #Initialize particles
-        self.initialize(number_of_particles)
+        self.initialize(PARTICLES, TIME_STEP)
 
-    def initialize(self, number_of_particles):
+    def initialize(self, number_of_particles, dt):
         """Initialize the container with particles."""
 
         #Calculate the spacing between particles
@@ -106,7 +89,8 @@ class LJContainer:
 
             position = [x, y, z,]
             velocity = velocities.pop()
-            particle = Particle(position, velocity)
+            particle = Particle(position, velocity, dt)
+
             self.particles.append(particle)
 
     def generate_velocities(self, number_of_particles):
@@ -173,34 +157,55 @@ class LJContainer:
                         r6i = r2i**3
                         u = 4 * r6i * (r6i - 1) - ecut
                         f = 48 * r2i * r6i * (r6i - 0.5)
-                        self.particles[i].potential += u + ecut
-                        self.particles[j].potential += u + ecut
+                        self.particles[i].potential += u
+                        self.particles[j].potential += u
                         for d in range(3):
                             self.particles[i].force[d] += f*dn[d]
                             self.particles[j].force[d] -= f*dn[d]
 
-    def tick(self, time_step):
+    def tick(self):
         """Perform one time step of the system."""
 
         #Andersen thermostat step 1
-        #for p in self.particles:
-        #    p.update_position(time_step, self.length)
+        self.update_positions(self.timestep, Andersen_phase=1)
         #Update forces
         self.update_forces()
         #Andersen thermostat step 2
-        for p in self.particles:
-            p.update_position(time_step, self.length)
+        self.update_positions(self.timestep, Andersen_phase=2)
+
+    def update_positions(self, dt, Andersen_phase=1):
+        """Update the position of the particle according to the velocity Verlet algorithm."""
+
+        if Andersen_phase == 1:
+            for p in self.particles:
+                for n in range(len(p.position)):
+                    p.position[n] = p.position[n] + dt*p.velocity[n] + 0.5*p.force[n]*dt**2
+                    p.position[n] = p.position[n] % self.length
+                    p.velocity[n] = p.velocity[n] + 0.5*dt*p.force[n]
+        elif Andersen_phase == 2:
+            insttemp = 0
+            for p in self.particles:
+                for n in range(len(p.position)):
+                    p.velocity[n] = p.velocity[n] + 0.5*dt*p.force[n]
+                    insttemp += p.velocity[n]**2
+            insttemp = insttemp/(3.0 * len(self.particles))
+            print insttemp
+            sigma = math.sqrt(self.temperature)
+            for p in self.particles:
+                if random.uniform(0, 1) < self.nu*dt:
+                    for n in range(len(p.position)):
+                        p.velocity[n] = random.gauss(0, sigma)
 
     def reset_particles(self):
         """Reset forces and potential energy on all particles."""
 
         #Calculate tail correction for the energy
         rc = 2.5
-        tail = 8/3 * math.pi * (1/3 * (1/rc)**9 - (1/rc)**3)
+        tail = 8.0/9.0 * math.pi * self.density * ((1/rc)**9 - 3*(1/rc)**3)
 
         for i in range(len(self.particles)):
             force = [0] * 3
-            #Reset force
+            #Reset forces
             self.particles[i].force = force
             #Reset potential energy to tail correction
             self.particles[i].potential = tail
@@ -213,13 +218,15 @@ class LJContainer:
         for particle in self.particles:
             K += particle.get_squared_velocity()
         #Get temperature from kinetic energy and degrees of freedom
-        T = K / 3.0
+        T = K / (3.0*len(self.particles))
 
         return T
 
     def sample(self, time):
         """Sample ensemble properties."""
 
+        rc = 2.5
+        Ptail = 32.0/9.0 * math.pi * self.density**2 *((1/rc)**9 - 3.0/2.0 * (1/rc)**3)
         self.data["t"].append(time)
         K = 0
         V = 0
@@ -235,4 +242,5 @@ class LJContainer:
         self.data["K"].append(K/len(self.particles))
         self.data["V"].append(V/len(self.particles))
         self.data["T"].append((K + V)/len(self.particles))
-        self.data["P"].append(P)
+        self.data["P"].append(P + Ptail)
+        self.data["temp"].append(self.get_current_temperature())

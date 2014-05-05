@@ -5,20 +5,16 @@ import sys
 from fluid import LJContainer
 import util
 
-PARTICLES = 108
-TEMPERATURE = 2.0
-DENSITY = 0.8442
-TIME_STEP = 0.004
-STEPS = 3000
+STEPS = 1000
 
 class LennardJones:
 
     t = 0.0
 
-    def __init__(self, timestep=TIME_STEP):
+    def __init__(self, density=0.8):
 
         #Initialize the container
-        container = LJContainer(PARTICLES, DENSITY, TEMPERATURE)
+        container = LJContainer(density)
 
         #Generate forces for the initial configuration
         #container.update_forces()
@@ -32,7 +28,7 @@ class LennardJones:
             sys.stdout.flush()
 
             #Do one 'tick' consisting of two integrations and a force update inbetween
-            container.tick(timestep)
+            container.tick()
 
             #Sample averages
             container.sample(self.t)
@@ -43,12 +39,12 @@ class LennardJones:
         util.write_data(container.data)
 
         #Generate a plot of the energies (kinetic, potential, total)
-        util.generate_report(timestep)
+        util.generate_report(0)
 
 if __name__ == "__main__":
     lj = None
     for i in sys.argv:
-        if i[:2] == "dt":
-            lj = LennardJones(timestep=float(i[2:]))
+        if i[:2] == "dn":
+            lj = LennardJones(density=float(i[2:]))
     if not lj:
         LennardJones()
