@@ -64,9 +64,7 @@ class LJContainer:
         #Calculate container dimensions from the density
         #Particle radius is set to 1
         self.length = (PARTICLES * 4.0/3.0 * math.pi / density)**(1.0/3)
-        print self.length
         self.temperature = TEMPERATURE
-        print self.temperature
         self.density = density
         self.timestep = TIME_STEP
         #Initialize particles
@@ -208,7 +206,6 @@ class LJContainer:
                     p.velocity[n] = p.velocity[n] + 0.5*dt*p.force[n]
                     insttemp += p.velocity[n]**2
             insttemp = insttemp/(3.0 * len(self.particles))
-            print insttemp
             sigma = math.sqrt(self.temperature)
             for p in self.particles:
                 if random.uniform(0, 1) < self.nu*dt:
