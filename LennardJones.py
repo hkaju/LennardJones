@@ -5,7 +5,7 @@ import sys
 from fluid import LJContainer
 import util
 
-STEPS = 1000
+STEPS = 20000
 
 class LennardJones:
 
@@ -28,7 +28,10 @@ class LennardJones:
             sys.stdout.flush()
 
             #Do one 'tick' consisting of two integrations and a force update inbetween
-            container.tick()
+            if self.t > 3000:
+                container.tick()
+            else:
+                container.tick(rescale=True)
 
             #Sample averages
             container.sample(self.t)

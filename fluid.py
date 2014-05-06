@@ -163,7 +163,7 @@ class LJContainer:
                             self.particles[i].force[d] += f*dn[d]
                             self.particles[j].force[d] -= f*dn[d]
 
-    def tick(self):
+    def tick(self, rescale=False):
         """Perform one time step of the system."""
 
         #Andersen thermostat step 1
@@ -172,6 +172,25 @@ class LJContainer:
         self.update_forces()
         #Andersen thermostat step 2
         self.update_positions(self.timestep, Andersen_phase=2)
+
+        #Rescale velocities
+        if rescale:
+            self.rescale()
+
+    def rescale(self):
+        """Rescale the velocities to match set temperature."""
+
+        scale_factor = [0] * 3
+        v2tot = [0] * 3
+        for particle in self.particles:
+            for dim in range(3):
+                v2tot[dim] += particle.velocity[dim]**2
+        for dim in range(3):
+            v2tot[dim] = v2tot[dim] / len(self.particles)
+            scale_factor[dim] = math.sqrt(self.temperature / v2tot[dim])
+        for particle in self.particles:
+            for dim in range(3):
+                particle.velocity[dim] = particle.velocity[dim] * scale_factor[dim]
 
     def update_positions(self, dt, Andersen_phase=1):
         """Update the position of the particle according to the velocity Verlet algorithm."""
