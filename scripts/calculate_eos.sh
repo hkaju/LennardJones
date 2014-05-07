@@ -1,12 +1,12 @@
 #!/bin/bash
-./LennardJones.py 0.1
-./LennardJones.py 0.2
-./LennardJones.py 0.3
-./LennardJones.py 0.4
-./LennardJones.py 0.5
-./LennardJones.py 0.6
-./LennardJones.py 0.7
-./LennardJones.py 0.8
-./LennardJones.py 0.9
-./LennardJones.py 1.0
-./LennardJones.py 1.05
+./LennardJones.py dn0.1
+./LennardJones.py dn0.2
+./LennardJones.py dn0.3
+./LennardJones.py dn0.4
+./LennardJones.py dn0.5
+./LennardJones.py dn0.6
+./LennardJones.py dn0.7
+./LennardJones.py dn0.8
+./LennardJones.py dn0.9
+./LennardJones.py dn1.0
+./LennardJones.py dn1.05
