@@ -4,8 +4,7 @@ import math
 
 PARTICLES = 108
 TEMPERATURE = 2.0
-DENSITY = 0.8
-TIME_STEP = 0.001
+TIME_STEP = 0.003
 ANDERSEN_FREQUENCY = 0.01
 CUTOFF = 2.5
 
@@ -17,6 +16,7 @@ class Particle:
     velocity = [0, 0, 0]
     force = [0, 0, 0]
     potential = 0
+    virial = 0
 
     def __init__(self, position, velocity, dt):
         """Initialize the particle with given position and velocity."""
@@ -51,6 +51,11 @@ class LJContainer:
     density = 0
     length = 0
     nu = ANDERSEN_FREQUENCY
+    rc = CUTOFF
+
+    Ptail = 16.0/3.0 * math.pi * density**2 * (2.0/3.0 * (1/rc)**9 - (1/rc)**3)
+    Utail = 8.0/3.0 * math.pi * density * (1.0/3.0 * (1/rc)**9 - (1/rc)**3)
+
     data = {"t" : [],
             "K" : [],
             "V" : [],
@@ -63,7 +68,7 @@ class LJContainer:
 
         #Calculate container dimensions from the density
         #Particle radius is set to 1
-        self.length = (PARTICLES * 4.0/3.0 * math.pi / density)**(1.0/3)
+        self.length = (PARTICLES / density)**(1.0/3)
         self.temperature = TEMPERATURE
         self.density = density
         self.timestep = TIME_STEP
@@ -160,6 +165,7 @@ class LJContainer:
                         for d in range(3):
                             self.particles[i].force[d] += f*dn[d]
                             self.particles[j].force[d] -= f*dn[d]
+                            self.particles[i].virial += f*dn[d]**2
 
     def tick(self, rescale=False):
         """Perform one time step of the system."""
@@ -215,9 +221,7 @@ class LJContainer:
     def reset_particles(self):
         """Reset forces and potential energy on all particles."""
 
-        #Calculate tail correction for the energy
-        rc = 2.5
-        tail = 8.0/9.0 * math.pi * self.density * ((1/rc)**9 - 3*(1/rc)**3)
+        tail = 0 + self.Utail
 
         for i in range(len(self.particles)):
             force = [0] * 3
@@ -225,6 +229,7 @@ class LJContainer:
             self.particles[i].force = force
             #Reset potential energy to tail correction
             self.particles[i].potential = tail
+            self.particles[i].virial = 0
 
     def get_current_temperature(self):
         """Calculate instantaneous temperature."""
@@ -241,22 +246,21 @@ class LJContainer:
     def sample(self, time):
         """Sample ensemble properties."""
 
-        rc = 2.5
-        Ptail = 32.0/9.0 * math.pi * self.density**2 *((1/rc)**9 - 3.0/2.0 * (1/rc)**3)
         self.data["t"].append(time)
         K = 0
         V = 0
-        F = 0
+        Fr = 0
         for particle in self.particles:
             K += particle.get_squared_velocity()
             V += particle.potential
-            F += particle.get_force()
-        #Calculate average force per particle
-        F = F/len(self.particles)
+            Fr += particle.virial
+        #Calculate per-particle energies
+        K = K/len(self.particles)
+        V = V/len(self.particles)
         #Calculate pressure
-        P = self.density * self.get_current_temperature() + 1/(3*self.length**3)*0.5*F
-        self.data["K"].append(K/len(self.particles))
-        self.data["V"].append(V/len(self.particles))
-        self.data["T"].append((K + V)/len(self.particles))
-        self.data["P"].append(P + Ptail)
+        P = self.density * self.get_current_temperature() + 1/(3*self.length**3) * Fr + self.Ptail
+        self.data["K"].append(K)
+        self.data["V"].append(V)
+        self.data["T"].append(K + V)
+        self.data["P"].append(P)
         self.data["temp"].append(self.get_current_temperature())
